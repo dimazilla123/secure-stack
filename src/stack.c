@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "stack.h"
 
-const int STACK_POISON = 0xDEADBEEF;
+const uint64_t STACK_POISON = 0xDEADBEEF;
 
 stack_status stack_construct(stack_t *st, size_t size)
 {
@@ -62,6 +62,10 @@ stack_status stack_push(stack_t *st, stack_elem_t elem)
             return STACK_NO_MEMORY;
         st->capacity *= 2;
         st->data = ndata;
+        #ifdef STACK_DEBUG
+        for (size_t i = st->size; i < st->capacity; ++i)
+            *((uint64_t*)&st->data[i]) = STACK_POISON;
+        #endif
     }
     st->data[st->size++] = elem;
     STACK_VALIDATE(st);
@@ -74,6 +78,9 @@ stack_status stack_pop(stack_t *st)
     if (st->size == 0)
         return STACK_UNDERFLOW;
     --st->size;
+    #ifdef STACK_DEBUG
+    *((uint64_t*)&st->data[st->size]) = STACK_POISON;
+    #endif
     return STACK_OK;
 }
 stack_status stack_back(stack_t *st, stack_elem_t *out)
@@ -89,6 +96,10 @@ stack_status stack_erase(stack_t *st)
 {
     STACK_VALIDATE(st);
     st->size = 0;
+    #ifdef STACK_DEBUG
+    for (size_t i = 0; i < st->capacity; ++i)
+        *((uint64_t*)&st->data[i]) = STACK_POISON;
+    #endif
     STACK_VALIDATE(st);
     return STACK_OK;
 }
@@ -123,10 +134,17 @@ void stack_dump(stack_t *st)
     fprintf(stderr, "    capacity = %lu,\n", st->capacity);
     fprintf(stderr, "    size     = %lu,\n", st->size);
     fprintf(stderr, "    data     = %p,\n",  st->data);
+    union {stack_elem_t ste; uint64_t ui;} elem = {};
     for (size_t i = 0; i < st->size; ++i)
-        fprintf(stderr, "    *[%lu] = %lf,\n", i, st->data[i]);
+    {
+        elem.ste = st->data[i];
+        fprintf(stderr, "    *[%lu] = %lf aka %#lX,\n", i, elem.ste, elem.ui);
+    }
     for (size_t i = st->size; i < st->capacity; ++i)
-        fprintf(stderr, "     [%lu] = %lf,\n", i, st->data[i]);
+    {
+        elem.ste = st->data[i];
+        fprintf(stderr, "     [%lu] = %lf aka %#lX,\n", i, elem.ste, elem.ui);
+    }
     fprintf(stderr, "}\n");
 }
 

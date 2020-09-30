@@ -24,7 +24,9 @@
 int main()
 {
     stack_t st = {};
+    stack_dump(&st);
     stack_construct(&st, 1);
+    stack_dump(&st);
     char command[7] = {};
     scanf("%6s", command);
     stack_status code = STACK_OK;
