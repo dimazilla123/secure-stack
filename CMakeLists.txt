@@ -9,7 +9,6 @@ project(stack)
 include_directories(src include)
 
 set(STACK_SRC
-    src/stack.c
     )
 
 add_executable(runstack src/main.c ${STACK_SRC})

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define stack_elem_t double
+#define ELEM_PRINT "%lf"
 #include "stack.h"
 
 /*
@@ -23,10 +25,10 @@
 
 int main()
 {
-    stack_t st = {};
-    stack_dump(&st);
-    stack_construct(&st, 1);
-    stack_dump(&st);
+    stack_double st = {};
+    stack_dump_double(&st);
+    stack_construct_double(&st, 1);
+    stack_dump_double(&st);
     char command[7] = {};
     scanf("%6s", command);
     stack_status code = STACK_OK;
@@ -39,13 +41,13 @@ int main()
         if (strcmp(command, "push") == 0)
         {
             scanf("%lf", &x);
-            code = stack_push(&st, x);
+            code = stack_push_double(&st, x);
             printf("ok\n");
         }
         else if (strcmp(command, "pop") == 0)
         {
-            code = stack_back(&st, &x);
-            code = stack_pop(&st);
+            code = stack_back_double(&st, &x);
+            code = stack_pop_double(&st);
             if (code == STACK_UNDERFLOW)
                 printf("error\n");
             else printf("%fl\n", x);
@@ -53,7 +55,7 @@ int main()
         }
         else if (strcmp(command, "back") == 0)
         {
-            code = stack_back(&st, &x);
+            code = stack_back_double(&st, &x);
             if (code == STACK_UNDERFLOW)
                 printf("error\n");
             else printf("%lf\n", x);
@@ -61,18 +63,18 @@ int main()
         }
         else if (strcmp(command, "size") == 0)
         {
-            printf("%lu\n", stack_getsize(&st));
+            printf("%lu\n", stack_getsize_double(&st));
         }
         else if (strcmp(command, "clear") == 0)
         {
-            code = stack_erase(&st);
+            code = stack_erase_double(&st);
             printf("ok\n");
         }
         memset(command, 0, sizeof(command));
         scanf("%6s", command);
-        stack_dump(&st);
+        stack_dump_double(&st);
     }
     printf("bye\n");
-    code = stack_destruct(&st);
+    code = stack_destruct_double(&st);
     return 0;
 }
