@@ -70,9 +70,9 @@ int main()
             code = stack_erase_double(&st);
             printf("ok\n");
         }
+        stack_dump_double(&st);
         memset(command, 0, sizeof(command));
         scanf("%6s", command);
-        stack_dump_double(&st);
     }
     printf("bye\n");
     code = stack_destruct_double(&st);

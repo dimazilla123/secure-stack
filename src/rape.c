@@ -7,8 +7,10 @@
 int main(int argc, char const *argv[])
 {
     stack_double *st = stack_new_double(1);
-    ((unsigned char*)st)[3] = 8;
     stack_push_double(st, 2);
+    stack_push_double(st, 3);
+    st->data[1] = 8;
+    stack_push_double(st, 20);
     stack_delete_double(st);
     return 0;
 }

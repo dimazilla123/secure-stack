@@ -58,9 +58,17 @@ size_t          GENERIC(stack_getsize)(GENERIC(stack) *st);
 
 stack_status    GENERIC(stack_validate)(GENERIC(stack) *st);
 void            GENERIC(stack_dump)(GENERIC(stack) *st);
+const char     *stack_error_code(stack_status status);
 
 #ifdef STACK_DEBUG
-#define STACK_VALIDATE(st) {stack_status stst = GENERIC(stack_validate)(st); if (stst != STACK_OK) { printf("Error %d at line %d in %s\n", stst, __LINE__, __func__); return stst;}}
+#define STACK_VALIDATE(st) ({\
+    stack_status stst = GENERIC(stack_validate)(st);\
+    if (stst != STACK_OK)\
+    {\
+        printf("\033[31mError %s at line %d in %s\033[39m\n", stack_error_code(stst), __LINE__, __func__);\
+        return stst;\
+    }\
+})
 #else
 #define STACK_VALIDATE(st) {}
 #endif
@@ -79,7 +87,7 @@ void GENERIC(stack_hash)(GENERIC(stack) *st)
 {
     st->checksum = 0;
     st->checksum = calc_hash((unsigned char*)st->data, sizeof(st->data[0]) * st->size);
-    st->checksum ^= calc_hash((unsigned char*)st, sizeof(st));
+    //st->checksum ^= calc_hash((unsigned char*)st, sizeof(st));
 }
 #endif
 
@@ -211,9 +219,10 @@ size_t GENERIC(stack_getsize)(GENERIC(stack) *st)
 
 void GENERIC(stack_dump)(GENERIC(stack) *st)
 {
+    fprintf(stderr, "\033[32m");
     if (st == NULL)
     {
-        fprintf(stderr, "GENERIC(stack) [%p] {}\n", st);
+        fprintf(stderr, "GENERIC(stack) [%p] {}\033[39m\n", st);
         return;
     }
     fprintf(stderr, "GENERIC(stack) [%p] {\n", st);
@@ -234,7 +243,7 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
         elem.ste = st->data[i];
         fprintf(stderr, "     [%lu]     = " ELEM_PRINT " aka %#lX,\n", i, elem.ste, elem.ui);
     }
-    fprintf(stderr, "}\n");
+    fprintf(stderr, "}\033[39m\n");
 }
 
 stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
@@ -260,6 +269,20 @@ stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
     return STACK_OK;
 }
 #endif
+
+const char *stack_error_code(stack_status status)
+{
+    static const char *errors[] = 
+    {
+        "STACK_OK",
+        "STACK_UNDERFLOW",
+        "STACK_NULL",
+        "STACK_NO_MEMORY",
+        "STACK_NOT_VALID",
+        "STACK_WRONG_CHECKSUM"
+    };
+    return errors[status];
+}
 
 #undef STR
 #undef CONCAT
