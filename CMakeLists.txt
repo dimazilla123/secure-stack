@@ -12,4 +12,5 @@ set(STACK_SRC
     )
 
 add_executable(runstack src/main.c ${STACK_SRC})
+add_executable(rapestack src/rape.c ${STACK_SRC})
 target_link_libraries(runstack m)

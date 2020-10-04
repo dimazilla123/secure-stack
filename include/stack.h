@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "bool.h"
 
 #ifndef stack_elem_t
@@ -9,6 +11,7 @@
 #define ELEM_PRINT "%d"
 #endif
 
+#define STR(s)
 #define CONCAT(a, b) a ## _ ## b
 #define OVERLOAD(name, type) CONCAT(name, type)
 #define GENERIC(name) OVERLOAD(name, stack_elem_t)
@@ -25,40 +28,59 @@ typedef enum
     STACK_UNDERFLOW,
     STACK_NULL,
     STACK_NO_MEMORY,
-    STACK_NOT_VALID
+    STACK_NOT_VALID,
+    STACK_WRONG_CHECKSUM
 } stack_status;
 
 struct GENERIC(stack_str)
 {
     #ifdef STACK_DEBUG
-    size_t checksum;
+    unsigned long checksum;
     #endif
     size_t capacity;
     size_t size;
     stack_elem_t *data;
 };
 
-stack_status GENERIC(stack_construct)(GENERIC(stack) *st, size_t size);
-stack_status GENERIC(stack_destruct)(GENERIC(stack) *st);
-GENERIC(stack)     *GENERIC(stack_new)(size_t size);
-stack_status GENERIC(stack_delete)(GENERIC(stack) *st);
+GENERIC(stack) *GENERIC(stack_new)(size_t size);
+stack_status    GENERIC(stack_construct)(GENERIC(stack) *st, size_t size);
+stack_status    GENERIC(stack_destruct)(GENERIC(stack) *st);
+stack_status    GENERIC(stack_delete)(GENERIC(stack) *st);
 
-stack_status GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem);
-stack_status GENERIC(stack_pop)(GENERIC(stack) *st);
-stack_status GENERIC(stack_back)(GENERIC(stack) *st, stack_elem_t *out);
+stack_status    GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem);
+stack_status    GENERIC(stack_pop)(GENERIC(stack) *st);
+stack_status    GENERIC(stack_back)(GENERIC(stack) *st, stack_elem_t *out);
 
-stack_status GENERIC(stack_erase)(GENERIC(stack) *st);
+stack_status    GENERIC(stack_erase)(GENERIC(stack) *st);
 
-bool         GENERIC(stack_empty)(GENERIC(stack) *st);
-size_t       GENERIC(stack_getsize)(GENERIC(stack) *st);
+bool            GENERIC(stack_empty)(GENERIC(stack) *st);
+size_t          GENERIC(stack_getsize)(GENERIC(stack) *st);
 
-stack_status GENERIC(stack_validate)(GENERIC(stack) *st);
-void         GENERIC(stack_dump)(GENERIC(stack) *st);
+stack_status    GENERIC(stack_validate)(GENERIC(stack) *st);
+void            GENERIC(stack_dump)(GENERIC(stack) *st);
 
 #ifdef STACK_DEBUG
-#define STACK_VALIDATE(st) {stack_status stst = GENERIC(stack_validate)(st); if (stst != STACK_OK) return stst;}
+#define STACK_VALIDATE(st) {stack_status stst = GENERIC(stack_validate)(st); if (stst != STACK_OK) { printf("Error %d at line %d in %s\n", stst, __LINE__, __func__); return stst;}}
 #else
 #define STACK_VALIDATE(st) {}
+#endif
+
+#ifdef STACK_DEBUG
+unsigned long calc_hash(const unsigned char *data, size_t size)
+{
+    static const unsigned long radix = 257;
+    static const unsigned long mod = 1e9 + 7;
+    unsigned long hash = 0;
+    for (size_t i = 0; i < size; ++i)
+        hash = (radix * hash % mod + data[i]) % mod;
+    return hash;
+}
+void GENERIC(stack_hash)(GENERIC(stack) *st)
+{
+    st->checksum = 0;
+    st->checksum = calc_hash((unsigned char*)st->data, sizeof(st->data[0]) * st->size);
+    st->checksum ^= calc_hash((unsigned char*)st, sizeof(st));
+}
 #endif
 
 stack_status GENERIC(stack_construct)(GENERIC(stack) *st, size_t size)
@@ -73,6 +95,9 @@ stack_status GENERIC(stack_construct)(GENERIC(stack) *st, size_t size)
     st->data = calloc(size, sizeof(st->data[0]));
     if (st->data == NULL)
         return STACK_NO_MEMORY;
+    #ifdef STACK_DEBUG
+    GENERIC(stack_hash)(st);
+    #endif
     return GENERIC(stack_validate)(st);
 }
 
@@ -124,6 +149,9 @@ stack_status GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem)
         #endif
     }
     st->data[st->size++] = elem;
+    #ifdef STACK_DEBUG
+    GENERIC(stack_hash)(st);
+    #endif
     STACK_VALIDATE(st);
     return STACK_OK;
 }
@@ -136,6 +164,7 @@ stack_status GENERIC(stack_pop)(GENERIC(stack) *st)
     --st->size;
     #ifdef STACK_DEBUG
     *((uint64_t*)&st->data[st->size]) = STACK_POISON;
+    GENERIC(stack_hash)(st);
     #endif
     return STACK_OK;
 }
@@ -145,6 +174,9 @@ stack_status GENERIC(stack_back)(GENERIC(stack) *st, stack_elem_t *out)
     if (st->size == 0)
         return STACK_UNDERFLOW;
     *out = st->data[st->size - 1];
+    #ifdef STACK_DEBUG
+    GENERIC(stack_hash)(st);
+    #endif
     return STACK_OK;
 }
 
@@ -155,6 +187,7 @@ stack_status GENERIC(stack_erase)(GENERIC(stack) *st)
     #ifdef STACK_DEBUG
     for (size_t i = 0; i < st->capacity; ++i)
         *((uint64_t*)&st->data[i]) = STACK_POISON;
+    GENERIC(stack_hash)(st);
     #endif
     STACK_VALIDATE(st);
     return STACK_OK;
@@ -194,12 +227,12 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
     for (size_t i = 0; i < st->size; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "    *[%lu] = " ELEM_PRINT " aka %#lX,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "    *[%lu]     = " ELEM_PRINT " aka %#lX,\n", i, elem.ste, elem.ui);
     }
     for (size_t i = st->size; i < st->capacity; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "     [%lu] = " ELEM_PRINT " aka %#lX,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "     [%lu]     = " ELEM_PRINT " aka %#lX,\n", i, elem.ste, elem.ui);
     }
     fprintf(stderr, "}\n");
 }
@@ -207,11 +240,15 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
 stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
 #ifdef STACK_DEBUG
 {
-    stack_dump(st);
+    GENERIC(stack_dump)(st);
     if (st == NULL || st->data == NULL)
         return STACK_NULL;
     if (st->size > st->capacity)
         return STACK_NOT_VALID;
+    unsigned long orig_hash = st->checksum;
+    GENERIC(stack_hash)(st);
+    if (st->checksum != orig_hash)
+        return STACK_WRONG_CHECKSUM;
     return STACK_OK;
 }
 #else
@@ -223,3 +260,8 @@ stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
     return STACK_OK;
 }
 #endif
+
+#undef STR
+#undef CONCAT
+#undef OVERLOAD
+#undef GENERIC
