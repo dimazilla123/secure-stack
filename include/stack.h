@@ -1,10 +1,17 @@
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "bool.h"
+
+/*!
+ * @file General stack realisation
+ * Should have predefined stack_elem_t and ELEM_PRINT for printf format\n
+ * All functions with name GENERIC(f) should be called as f_stack_elem_t()\n
+ * Typenames should be one worded, use typedef for something complicated
+ * (i.e. typedef long long ll and stack_push_ll)
+ */
 
 #ifndef stack_elem_t
 #define stack_elem_t int
@@ -41,23 +48,60 @@ struct GENERIC(stack_str)
     size_t size;
     stack_elem_t *data;
 };
-
+/*!
+ * Returns pointer to stack with starting capacity `size`
+ *
+ * @param size the initial capacity
+ * @return NULL if memory cannot be allocated, valid pointer otherwise
+ */
 GENERIC(stack) *GENERIC(stack_new)(size_t size);
+/*!
+ * Constructs stack from allocated memory
+ *
+ * @param[out] st pointer to memory for structure
+ * @param size the inital capacity
+ *
+ * @return Status of command
+ */
 stack_status    GENERIC(stack_construct)(GENERIC(stack) *st, size_t size);
+/*!
+ * Destroys stack without removing structure memory
+ */
 stack_status    GENERIC(stack_destruct)(GENERIC(stack) *st);
+/*!
+ * Completely deletes stack from memory
+ */
 stack_status    GENERIC(stack_delete)(GENERIC(stack) *st);
 
 stack_status    GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem);
 stack_status    GENERIC(stack_pop)(GENERIC(stack) *st);
 stack_status    GENERIC(stack_back)(GENERIC(stack) *st, stack_elem_t *out);
 
+/*!
+ * Deletes all elements from stack
+ */
 stack_status    GENERIC(stack_erase)(GENERIC(stack) *st);
 
+/*!
+ * Checks if stack is empty
+ */
 bool            GENERIC(stack_empty)(GENERIC(stack) *st);
+/*!
+ * Returns size of stack. If st == NULL, returns 0
+ */
 size_t          GENERIC(stack_getsize)(GENERIC(stack) *st);
 
+/*!
+ * Checks the validity of stack
+ */
 stack_status    GENERIC(stack_validate)(GENERIC(stack) *st);
+/*!
+ * Prints stack contents in fancy way
+ */
 void            GENERIC(stack_dump)(GENERIC(stack) *st);
+/*!
+ * Returns string value of error code
+ */
 const char     *stack_error_code(stack_status status);
 
 #ifdef STACK_DEBUG
