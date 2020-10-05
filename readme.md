@@ -11,6 +11,6 @@ $ make
 
 ## Usage
 ```bash
-$ ./runstack # interactive demo from first contest task demo
+$ ./runstack # interactive demo from first contest task
 $ ./rapestack # some tests for invalidation of stack
 ```

@@ -5,6 +5,14 @@
 #include <string.h>
 #include "bool.h"
 
+/* [TODO]
+   - Fix premade exploits
+   - Add canaries for buffer
+   - Lower resize
+   ? MOAR RAPE TESTS
+  +- MOAR COLORS FOR DUMP
+ */
+
 /*!
  * @file General stack realisation
  * Should have predefined stack_elem_t and ELEM_PRINT for printf format\n
@@ -27,6 +35,8 @@ typedef struct GENERIC(stack_str) GENERIC(stack);
 
 #ifdef STACK_DEBUG
 const uint64_t STACK_POISON = 0xDEADBEEF;
+const uint64_t LEFT_CANARY = 0xB14D1;
+const uint64_t RIGHT_CANARY = 0xB14D2;
 #endif
 
 typedef enum
@@ -43,10 +53,14 @@ struct GENERIC(stack_str)
 {
     #ifdef STACK_DEBUG
     unsigned long checksum;
+    uint64_t left_c;
     #endif
     size_t capacity;
     size_t size;
     stack_elem_t *data;
+    #ifdef STACK_DEBUG
+    uint64_t right_c;
+    #endif
 };
 /*!
  * Returns pointer to stack with starting capacity `size`
@@ -130,7 +144,7 @@ unsigned long calc_hash(const unsigned char *data, size_t size)
 void GENERIC(stack_hash)(GENERIC(stack) *st)
 {
     st->checksum = 0;
-    st->checksum = calc_hash((unsigned char*)st->data, sizeof(st->data[0]) * st->size);
+    st->checksum = calc_hash((unsigned char*)st->data, sizeof(st->data[0]) * st->capacity);
     //st->checksum ^= calc_hash((unsigned char*)st, sizeof(st));
 }
 #endif
@@ -141,6 +155,8 @@ stack_status GENERIC(stack_construct)(GENERIC(stack) *st, size_t size)
         return STACK_NULL;
     #ifdef STACK_DEBUG
     st->checksum = 0;
+    st->left_c = LEFT_CANARY;
+    st->right_c = RIGHT_CANARY;
     #endif
     st->capacity = size; 
     st->size = 0;
@@ -216,6 +232,16 @@ stack_status GENERIC(stack_pop)(GENERIC(stack) *st)
     --st->size;
     #ifdef STACK_DEBUG
     *((uint64_t*)&st->data[st->size]) = STACK_POISON;
+    #endif
+    if (st->size * 4 > st->capacity && st->size * 2 <= st->capacity)
+    {
+        stack_elem_t *ndata = reallocarray(st->data, st->capacity / 2, sizeof(st->data[0]));
+        if (ndata == NULL)
+            return STACK_NO_MEMORY;
+        st->capacity /= 2;
+        st->data = ndata;
+    }
+    #ifdef STACK_DEBUG
     GENERIC(stack_hash)(st);
     #endif
     return STACK_OK;
@@ -271,21 +297,25 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
     }
     fprintf(stderr, "GENERIC(stack) [%p] {\n", st);
     #ifdef STACK_DEBUG
-    fprintf(stderr, "    checksum = %lu,\n", st->checksum);
+    fprintf(stderr, "    \033[32mchecksum = \033[33m%lu\033[32m,\n", st->checksum);
+    fprintf(stderr, "    \033[32mleft_c   = \033[33m%#lX\033[32m\n", st->left_c);
     #endif
-    fprintf(stderr, "    capacity = %lu,\n", st->capacity);
-    fprintf(stderr, "    size     = %lu,\n", st->size);
-    fprintf(stderr, "    data     = %p,\n",  st->data);
+    fprintf(stderr, "    \033[32mcapacity = \033[33m%lu\033[32m,\n", st->capacity);
+    fprintf(stderr, "    \033[32msize     = \033[33m%lu\033[32m,\n", st->size);
+    fprintf(stderr, "    \033[32mdata     = \033[33m%p\033[32m,\n",  st->data);
+    #ifdef STACK_DEBUG
+    fprintf(stderr, "    \033[32mright_c  = \033[33m%#lX\033[32m\n", st->right_c);
+    #endif
     union {stack_elem_t ste; uint64_t ui;} elem = {};
     for (size_t i = 0; i < st->size; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "    *[%lu]     = " ELEM_PRINT " aka %#lX,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "    *[%lu]     = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
     }
     for (size_t i = st->size; i < st->capacity; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "     [%lu]     = " ELEM_PRINT " aka %#lX,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "     [%lu]     = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
     }
     fprintf(stderr, "}\033[39m\n");
 }
