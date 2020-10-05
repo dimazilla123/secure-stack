@@ -29,8 +29,8 @@ int main()
     stack_dump_double(&st);
     stack_construct_double(&st, 1);
     stack_dump_double(&st);
-    char command[7] = {};
-    scanf("%6s", command);
+    char command[80] = {};
+    scanf("%s", command);
     stack_status code = STACK_OK;
     stack_elem_t x = 0;
     while (code == STACK_OK && strcmp("exit", command) != 0)
@@ -70,9 +70,24 @@ int main()
             code = stack_erase_double(&st);
             printf("ok\n");
         }
+        else if (strcmp(command, "rapedata") == 0)
+        {
+            size_t pos = 0;
+            scanf("%lf %lu", &x, &pos);
+            fprintf(stderr, "Gonna rape %lf %lu\n", x, pos);
+            st.data[pos] = x;
+        }
+        else if (strcmp(command, "rapestruct") == 0)
+        {
+            size_t pos = 0;
+            int byte = 0;
+            scanf("%d %lu", &byte, &pos);
+            fprintf(stderr, "Gonna rape %d %lu\n", byte, pos);
+            ((char*)(&st))[pos] = byte;
+        }
         stack_dump_double(&st);
         memset(command, 0, sizeof(command));
-        scanf("%6s", command);
+        scanf("%s", command);
     }
     printf("bye\n");
     code = stack_destruct_double(&st);

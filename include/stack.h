@@ -46,7 +46,8 @@ typedef enum
     STACK_NULL,
     STACK_NO_MEMORY,
     STACK_NOT_VALID,
-    STACK_WRONG_CHECKSUM
+    STACK_WRONG_CHECKSUM,
+    STACK_CANARY
 } stack_status;
 
 struct GENERIC(stack_str)
@@ -141,6 +142,7 @@ unsigned long calc_hash(const unsigned char *data, size_t size)
         hash = (radix * hash % mod + data[i]) % mod;
     return hash;
 }
+
 void GENERIC(stack_hash)(GENERIC(stack) *st)
 {
     st->checksum = 0;
@@ -201,9 +203,8 @@ stack_status GENERIC(stack_delete)(GENERIC(stack) *st)
     return STACK_OK;
 }
 
-stack_status GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem)
+stack_status GENERIC(stack_fit)(GENERIC(stack) *st)
 {
-    STACK_VALIDATE(st);
     if (st->size == st->capacity)
     {
         stack_elem_t *ndata = reallocarray(st->data, st->capacity * 2, sizeof(st->data[0]));
@@ -216,6 +217,24 @@ stack_status GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem)
             *((uint64_t*)&st->data[i]) = STACK_POISON;
         #endif
     }
+    if (st->size * 4 > st->capacity && st->size * 2 < st->capacity)
+    {
+        stack_elem_t *ndata = reallocarray(st->data, st->capacity / 2, sizeof(st->data[0]));
+        if (ndata == NULL)
+            return STACK_NO_MEMORY;
+        st->capacity /= 2;
+        st->data = ndata;
+    }
+    return STACK_OK;
+}
+
+stack_status GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem)
+{
+    STACK_VALIDATE(st);
+    stack_status stat = GENERIC(stack_fit)(st);
+    if (stat != STACK_OK)
+        return stat;
+
     st->data[st->size++] = elem;
     #ifdef STACK_DEBUG
     GENERIC(stack_hash)(st);
@@ -230,22 +249,16 @@ stack_status GENERIC(stack_pop)(GENERIC(stack) *st)
     if (st->size == 0)
         return STACK_UNDERFLOW;
     --st->size;
+    GENERIC(stack_fit)(st);
     #ifdef STACK_DEBUG
     *((uint64_t*)&st->data[st->size]) = STACK_POISON;
     #endif
-    if (st->size * 4 > st->capacity && st->size * 2 <= st->capacity)
-    {
-        stack_elem_t *ndata = reallocarray(st->data, st->capacity / 2, sizeof(st->data[0]));
-        if (ndata == NULL)
-            return STACK_NO_MEMORY;
-        st->capacity /= 2;
-        st->data = ndata;
-    }
     #ifdef STACK_DEBUG
     GENERIC(stack_hash)(st);
     #endif
     return STACK_OK;
 }
+
 stack_status GENERIC(stack_back)(GENERIC(stack) *st, stack_elem_t *out)
 {
     STACK_VALIDATE(st);
@@ -328,6 +341,10 @@ stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
         return STACK_NULL;
     if (st->size > st->capacity)
         return STACK_NOT_VALID;
+    if (st->left_c != LEFT_CANARY || st->right_c != RIGHT_CANARY)
+    {
+        return STACK_CANARY;
+    }
     unsigned long orig_hash = st->checksum;
     GENERIC(stack_hash)(st);
     if (st->checksum != orig_hash)
@@ -353,7 +370,8 @@ const char *stack_error_code(stack_status status)
         "STACK_NULL",
         "STACK_NO_MEMORY",
         "STACK_NOT_VALID",
-        "STACK_WRONG_CHECKSUM"
+        "STACK_WRONG_CHECKSUM",
+        "STACK_CANARY"
     };
     return errors[status];
 }
