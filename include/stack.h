@@ -8,7 +8,7 @@
 /* [TODO]
    - Fix premade exploits
    - Add canaries for buffer
-   - Lower resize
+   + Lower resize
    ? MOAR RAPE TESTS
   +- MOAR COLORS FOR DUMP
  */
@@ -26,6 +26,13 @@
 #define ELEM_PRINT "%d"
 #endif
 
+#ifdef STACK_DEBUG
+#define STACK_CANARY_PROTECT
+#define STACK_USE_POISON
+#define STACK_CHECKSUM_PROTECT
+#define STACK_USE_VALIDATE
+#endif
+
 #define STR(s)
 #define CONCAT(a, b) a ## _ ## b
 #define OVERLOAD(name, type) CONCAT(name, type)
@@ -33,8 +40,10 @@
 
 typedef struct GENERIC(stack_str) GENERIC(stack);
 
-#ifdef STACK_DEBUG
+#ifdef STACK_USE_POISON
 const uint64_t STACK_POISON = 0xDEADBEEF;
+#endif
+#ifdef STACK_CANARY_PROTECT
 const uint64_t LEFT_CANARY = 0xB14D1;
 const uint64_t RIGHT_CANARY = 0xB14D2;
 #endif
@@ -52,14 +61,16 @@ typedef enum
 
 struct GENERIC(stack_str)
 {
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CANARY_PROTECT
     unsigned long checksum;
+    #endif
+    #ifdef STACK_CANARY_PROTECT
     uint64_t left_c;
     #endif
     size_t capacity;
     size_t size;
     stack_elem_t *data;
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CANARY_PROTECT
     uint64_t right_c;
     #endif
 };
@@ -119,7 +130,7 @@ void            GENERIC(stack_dump)(GENERIC(stack) *st);
  */
 const char     *stack_error_code(stack_status status);
 
-#ifdef STACK_DEBUG
+#ifdef STACK_USE_VALIDATE
 #define STACK_VALIDATE(st) ({\
     stack_status stst = GENERIC(stack_validate)(st);\
     if (stst != STACK_OK)\
@@ -132,7 +143,7 @@ const char     *stack_error_code(stack_status status);
 #define STACK_VALIDATE(st) {}
 #endif
 
-#ifdef STACK_DEBUG
+#ifdef STACK_CHECKSUM_PROTECT
 unsigned long calc_hash(const unsigned char *data, size_t size)
 {
     static const unsigned long radix = 257;
@@ -155,8 +166,10 @@ stack_status GENERIC(stack_construct)(GENERIC(stack) *st, size_t size)
 {
     if (st == NULL)
         return STACK_NULL;
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CHECKSUM_PROTECT
     st->checksum = 0;
+    #endif
+    #ifdef STACK_CANARY_PROTECT
     st->left_c = LEFT_CANARY;
     st->right_c = RIGHT_CANARY;
     #endif
@@ -165,7 +178,7 @@ stack_status GENERIC(stack_construct)(GENERIC(stack) *st, size_t size)
     st->data = calloc(size, sizeof(st->data[0]));
     if (st->data == NULL)
         return STACK_NO_MEMORY;
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CHECKSUM_PROTECT
     GENERIC(stack_hash)(st);
     #endif
     return GENERIC(stack_validate)(st);
@@ -179,7 +192,7 @@ stack_status GENERIC(stack_destruct)(GENERIC(stack) *st)
     if (stat != STACK_OK)
         return stat;
     free(st->data);
-    #ifdef STACK_DEBUG
+    #ifdef STACK_USE_POISON
     memset(st, STACK_POISON, sizeof(*st));
     #endif
     return STACK_OK;
@@ -212,7 +225,7 @@ stack_status GENERIC(stack_fit)(GENERIC(stack) *st)
             return STACK_NO_MEMORY;
         st->capacity *= 2;
         st->data = ndata;
-        #ifdef STACK_DEBUG
+        #ifdef STACK_USE_POISON
         for (size_t i = st->size; i < st->capacity; ++i)
             *((uint64_t*)&st->data[i]) = STACK_POISON;
         #endif
@@ -236,7 +249,7 @@ stack_status GENERIC(stack_push)(GENERIC(stack) *st, stack_elem_t elem)
         return stat;
 
     st->data[st->size++] = elem;
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CHECKSUM_PROTECT
     GENERIC(stack_hash)(st);
     #endif
     STACK_VALIDATE(st);
@@ -250,10 +263,10 @@ stack_status GENERIC(stack_pop)(GENERIC(stack) *st)
         return STACK_UNDERFLOW;
     --st->size;
     GENERIC(stack_fit)(st);
-    #ifdef STACK_DEBUG
+    #ifdef STACK_POISON
     *((uint64_t*)&st->data[st->size]) = STACK_POISON;
     #endif
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CHECKSUM_PROTECT
     GENERIC(stack_hash)(st);
     #endif
     return STACK_OK;
@@ -265,7 +278,7 @@ stack_status GENERIC(stack_back)(GENERIC(stack) *st, stack_elem_t *out)
     if (st->size == 0)
         return STACK_UNDERFLOW;
     *out = st->data[st->size - 1];
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CHECKSUM_PROTECT
     GENERIC(stack_hash)(st);
     #endif
     return STACK_OK;
@@ -275,9 +288,11 @@ stack_status GENERIC(stack_erase)(GENERIC(stack) *st)
 {
     STACK_VALIDATE(st);
     st->size = 0;
-    #ifdef STACK_DEBUG
+    #ifdef STACK_USE_POISON
     for (size_t i = 0; i < st->capacity; ++i)
         *((uint64_t*)&st->data[i]) = STACK_POISON;
+    #endif
+    #ifdef STACK_CHECKSUM_PROTECT
     GENERIC(stack_hash)(st);
     #endif
     STACK_VALIDATE(st);
@@ -309,14 +324,16 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
         return;
     }
     fprintf(stderr, "GENERIC(stack) [%p] {\n", st);
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CHECKSUM_PROTECT
     fprintf(stderr, "    \033[32mchecksum = \033[33m%lu\033[32m,\n", st->checksum);
+    #endif
+    #ifdef STACK_CANARY_PROTECT
     fprintf(stderr, "    \033[32mleft_c   = \033[33m%#lX\033[32m\n", st->left_c);
     #endif
     fprintf(stderr, "    \033[32mcapacity = \033[33m%lu\033[32m,\n", st->capacity);
     fprintf(stderr, "    \033[32msize     = \033[33m%lu\033[32m,\n", st->size);
     fprintf(stderr, "    \033[32mdata     = \033[33m%p\033[32m,\n",  st->data);
-    #ifdef STACK_DEBUG
+    #ifdef STACK_CANARY_PROTECT
     fprintf(stderr, "    \033[32mright_c  = \033[33m%#lX\033[32m\n", st->right_c);
     #endif
     union {stack_elem_t ste; uint64_t ui;} elem = {};
@@ -334,32 +351,24 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
 }
 
 stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
-#ifdef STACK_DEBUG
 {
     GENERIC(stack_dump)(st);
     if (st == NULL || st->data == NULL)
         return STACK_NULL;
     if (st->size > st->capacity)
         return STACK_NOT_VALID;
+    #ifdef STACK_CANARY_PROTECT
     if (st->left_c != LEFT_CANARY || st->right_c != RIGHT_CANARY)
-    {
         return STACK_CANARY;
-    }
+    #endif
+    #ifdef STACK_CHECKSUM_PROTECT
     unsigned long orig_hash = st->checksum;
     GENERIC(stack_hash)(st);
     if (st->checksum != orig_hash)
         return STACK_WRONG_CHECKSUM;
+    #endif
     return STACK_OK;
 }
-#else
-{
-    if (st == NULL || st->data == NULL)
-        return STACK_NULL;
-    if (st->size > st->capacity)
-        return STACK_NOT_VALID;
-    return STACK_OK;
-}
-#endif
 
 const char *stack_error_code(stack_status status)
 {
