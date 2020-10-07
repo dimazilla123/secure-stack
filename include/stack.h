@@ -61,7 +61,7 @@ typedef enum
 
 struct GENERIC(stack_str)
 {
-    #ifdef STACK_CANARY_PROTECT
+    #ifdef STACK_CHECKSUM_PROTECT
     unsigned long checksum;
     #endif
     #ifdef STACK_CANARY_PROTECT
@@ -332,22 +332,22 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
     #endif
     fprintf(stderr, "    \033[32mcapacity = \033[33m%lu\033[32m,\n", st->capacity);
     fprintf(stderr, "    \033[32msize     = \033[33m%lu\033[32m,\n", st->size);
-    fprintf(stderr, "    \033[32mdata     = \033[33m%p\033[32m,\n",  st->data);
     #ifdef STACK_CANARY_PROTECT
     fprintf(stderr, "    \033[32mright_c  = \033[33m%#lX\033[32m\n", st->right_c);
     #endif
+    fprintf(stderr, "    \033[32mdata[\033[33m%p\033[32m]     = {,\n",  st->data);
     union {stack_elem_t ste; uint64_t ui;} elem = {};
     for (size_t i = 0; i < st->size; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "    *[%lu]     = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "        *[%lu] = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
     }
     for (size_t i = st->size; i < st->capacity; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "     [%lu]     = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "         [%lu] = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
     }
-    fprintf(stderr, "}\033[39m\n");
+    fprintf(stderr, "    }\n}\033[39m\n");
 }
 
 stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
