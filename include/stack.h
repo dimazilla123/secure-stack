@@ -56,7 +56,8 @@ typedef enum
     STACK_NO_MEMORY,
     STACK_NOT_VALID,
     STACK_WRONG_CHECKSUM,
-    STACK_CANARY
+    STACK_CANARY,
+    STACK_STATUSES_CNT // count of enum entities
 } stack_status;
 
 struct GENERIC(stack_str)
@@ -220,7 +221,7 @@ stack_status GENERIC(stack_fit)(GENERIC(stack) *st)
 {
     if (st->size == st->capacity)
     {
-        stack_elem_t *ndata = reallocarray(st->data, st->capacity * 2, sizeof(st->data[0]));
+        stack_elem_t *ndata = realloc(st->data, st->capacity * 2 * sizeof(st->data[0]));
         if (ndata == NULL)
             return STACK_NO_MEMORY;
         st->capacity *= 2;
@@ -232,7 +233,7 @@ stack_status GENERIC(stack_fit)(GENERIC(stack) *st)
     }
     if (st->size * 4 > st->capacity && st->size * 2 < st->capacity)
     {
-        stack_elem_t *ndata = reallocarray(st->data, st->capacity / 2, sizeof(st->data[0]));
+        stack_elem_t *ndata = realloc(st->data, st->capacity / 2 * sizeof(st->data[0]));
         if (ndata == NULL)
             return STACK_NO_MEMORY;
         st->capacity /= 2;
