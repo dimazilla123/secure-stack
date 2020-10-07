@@ -279,7 +279,9 @@ stack_status GENERIC(stack_pop)(GENERIC(stack) *st)
     --st->size;
     GENERIC(stack_fit)(st);
     #ifdef STACK_POISON
-    *((uint64_t*)&st->data[st->size]) = STACK_POISON;
+    union {stack_elem_t stel; unsigned long long ul} el;
+    el.ul = STACK_POISON;
+    *st->dat[st->size] = el.stel;
     #endif
     #ifdef STACK_CHECKSUM_PROTECT
     GENERIC(stack_hash)(st);
@@ -304,8 +306,10 @@ stack_status GENERIC(stack_erase)(GENERIC(stack) *st)
     STACK_VALIDATE(st);
     st->size = 0;
     #ifdef STACK_USE_POISON
+    union {stack_elem_t stel; unsigned long long ul;} el;
+    el.ul = STACK_POISON;
     for (size_t i = 0; i < st->capacity; ++i)
-        *((uint64_t*)&st->data[i]) = STACK_POISON;
+        st->data[i] = el.stel;
     #endif
     #ifdef STACK_CHECKSUM_PROTECT
     GENERIC(stack_hash)(st);
