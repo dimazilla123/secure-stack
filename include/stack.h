@@ -41,11 +41,11 @@
 typedef struct GENERIC(stack_str) GENERIC(stack);
 
 #ifdef STACK_USE_POISON
-const uint64_t STACK_POISON = 0xDEADBEEF;
+const unsigned long long STACK_POISON = 0xDEADBEEF;
 #endif
 #ifdef STACK_CANARY_PROTECT
-const uint64_t LEFT_CANARY = 0xB14D1;
-const uint64_t RIGHT_CANARY = 0xB14D2;
+const unsigned long long LEFT_CANARY = 0xB14D1;
+const unsigned long long RIGHT_CANARY = 0xB14D2;
 #endif
 
 typedef enum
@@ -66,13 +66,13 @@ struct GENERIC(stack_str)
     unsigned long checksum;
     #endif
     #ifdef STACK_CANARY_PROTECT
-    uint64_t left_c;
+    unsigned long long left_c;
     #endif
     size_t capacity;
     size_t size;
     stack_elem_t *data;
     #ifdef STACK_CANARY_PROTECT
-    uint64_t right_c;
+    unsigned long long right_c;
     #endif
 };
 /*!
@@ -228,7 +228,7 @@ stack_status GENERIC(stack_fit)(GENERIC(stack) *st)
         st->data = ndata;
         #ifdef STACK_USE_POISON
         for (size_t i = st->size; i < st->capacity; ++i)
-            *((uint64_t*)&st->data[i]) = STACK_POISON;
+            *((unsigned long long*)&st->data[i]) = STACK_POISON;
         #endif
     }
     if (st->size * 4 > st->capacity && st->size * 2 < st->capacity)
@@ -329,24 +329,24 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
     fprintf(stderr, "    \033[32mchecksum = \033[33m%zu\033[32m,\n", st->checksum);
     #endif
     #ifdef STACK_CANARY_PROTECT
-    fprintf(stderr, "    \033[32mleft_c   = \033[33m%#lX\033[32m\n", st->left_c);
+    fprintf(stderr, "    \033[32mleft_c   = \033[33m%#llX\033[32m\n", st->left_c);
     #endif
     fprintf(stderr, "    \033[32mcapacity = \033[33m%zu\033[32m,\n", st->capacity);
     fprintf(stderr, "    \033[32msize     = \033[33m%zu\033[32m,\n", st->size);
     #ifdef STACK_CANARY_PROTECT
-    fprintf(stderr, "    \033[32mright_c  = \033[33m%#lX\033[32m\n", st->right_c);
+    fprintf(stderr, "    \033[32mright_c  = \033[33m%#llX\033[32m\n", st->right_c);
     #endif
     fprintf(stderr, "    \033[32mdata[\033[33m%p\033[32m]     = {,\n",  st->data);
-    union {stack_elem_t ste; uint64_t ui;} elem = {};
+    union {stack_elem_t ste; long long unsigned ui;} elem = {};
     for (size_t i = 0; i < st->size; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "        *[%lu] = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "        *[%zu] = \033[33m" ELEM_PRINT " aka %#llX\033[32m,\n", i, elem.ste, elem.ui);
     }
     for (size_t i = st->size; i < st->capacity; ++i)
     {
         elem.ste = st->data[i];
-        fprintf(stderr, "         [%lu] = \033[33m" ELEM_PRINT " aka %#lX\033[32m,\n", i, elem.ste, elem.ui);
+        fprintf(stderr, "         [%zu] = \033[33m" ELEM_PRINT " aka %#llX\033[32m,\n", i, elem.ste, elem.ui);
     }
     fprintf(stderr, "    }\n}\033[39m\n");
 }

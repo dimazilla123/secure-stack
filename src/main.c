@@ -73,7 +73,7 @@ int main()
         else if (strcmp(command, "rapedata") == 0)
         {
             size_t pos = 0;
-            scanf("%lf %lu", &x, &pos);
+            scanf("%lf %zu", &x, &pos);
             fprintf(stderr, "Gonna rape %lf %zu\n", x, pos);
             st.data[pos] = x;
         }
