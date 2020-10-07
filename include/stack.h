@@ -326,13 +326,13 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
     }
     fprintf(stderr, "GENERIC(stack) [%p] {\n", st);
     #ifdef STACK_CHECKSUM_PROTECT
-    fprintf(stderr, "    \033[32mchecksum = \033[33m%lu\033[32m,\n", st->checksum);
+    fprintf(stderr, "    \033[32mchecksum = \033[33m%zu\033[32m,\n", st->checksum);
     #endif
     #ifdef STACK_CANARY_PROTECT
     fprintf(stderr, "    \033[32mleft_c   = \033[33m%#lX\033[32m\n", st->left_c);
     #endif
-    fprintf(stderr, "    \033[32mcapacity = \033[33m%lu\033[32m,\n", st->capacity);
-    fprintf(stderr, "    \033[32msize     = \033[33m%lu\033[32m,\n", st->size);
+    fprintf(stderr, "    \033[32mcapacity = \033[33m%zu\033[32m,\n", st->capacity);
+    fprintf(stderr, "    \033[32msize     = \033[33m%zu\033[32m,\n", st->size);
     #ifdef STACK_CANARY_PROTECT
     fprintf(stderr, "    \033[32mright_c  = \033[33m%#lX\033[32m\n", st->right_c);
     #endif

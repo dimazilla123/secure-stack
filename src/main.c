@@ -63,7 +63,7 @@ int main()
         }
         else if (strcmp(command, "size") == 0)
         {
-            printf("%lu\n", stack_getsize_double(&st));
+            printf("%zu\n", stack_getsize_double(&st));
         }
         else if (strcmp(command, "clear") == 0)
         {
@@ -74,15 +74,15 @@ int main()
         {
             size_t pos = 0;
             scanf("%lf %lu", &x, &pos);
-            fprintf(stderr, "Gonna rape %lf %lu\n", x, pos);
+            fprintf(stderr, "Gonna rape %lf %zu\n", x, pos);
             st.data[pos] = x;
         }
         else if (strcmp(command, "rapestruct") == 0)
         {
             size_t pos = 0;
             int byte = 0;
-            scanf("%d %lu", &byte, &pos);
-            fprintf(stderr, "Gonna rape %d %lu\n", byte, pos);
+            scanf("%d %zu", &byte, &pos);
+            fprintf(stderr, "Gonna rape %d %zu\n", byte, pos);
             ((char*)(&st))[pos] = byte;
         }
         stack_dump_double(&st);
