@@ -5,6 +5,14 @@
 #include <string.h>
 #include "bool.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#ifdef __unix__
+#include <unistd.h>
+#include <sys/mman.h>
+#endif
+
 /* [TODO]
    - Fix premade exploits
    - Add canaries for buffer
@@ -130,6 +138,12 @@ void            GENERIC(stack_dump)(GENERIC(stack) *st);
  * Returns string value of error code
  */
 const char     *stack_error_code(stack_status status);
+/*!
+ * Checks if pointer is valid.
+ * Platform specific code
+ */
+
+bool is_pointer_valid(void *ptr);
 
 #ifdef STACK_USE_VALIDATE
 #define STACK_VALIDATE(st) ({\
@@ -159,7 +173,7 @@ void GENERIC(stack_hash)(GENERIC(stack) *st)
 {
     st->checksum = 0;
     st->checksum = calc_hash((unsigned char*)st->data, sizeof(st->data[0]) * st->capacity);
-    //st->checksum ^= calc_hash((unsigned char*)st, sizeof(st));
+    st->checksum ^= calc_hash((unsigned char*)st, sizeof(st));
 }
 #endif
 
@@ -321,10 +335,10 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
     fprintf(stderr, "\033[32m");
     if (st == NULL)
     {
-        fprintf(stderr, "GENERIC(stack) [%p] {}\033[39m\n", st);
+        fprintf(stderr, "stack [%p] {}\033[39m\n", st);
         return;
     }
-    fprintf(stderr, "GENERIC(stack) [%p] {\n", st);
+    fprintf(stderr, "stack [%p] {\n", st);
     #ifdef STACK_CHECKSUM_PROTECT
     fprintf(stderr, "    \033[32mchecksum = \033[33m%zu\033[32m,\n", st->checksum);
     #endif
@@ -338,25 +352,30 @@ void GENERIC(stack_dump)(GENERIC(stack) *st)
     #endif
     fprintf(stderr, "    \033[32mdata[\033[33m%p\033[32m]     = {,\n",  st->data);
     union {stack_elem_t ste; long long unsigned ui;} elem = {};
-    for (size_t i = 0; i < st->size; ++i)
+    const size_t MAX_WRITES = 20;
+    size_t lim = (st->size < MAX_WRITES ? st->size : MAX_WRITES);
+    for (size_t i = 0; i < lim; ++i)
     {
         elem.ste = st->data[i];
         fprintf(stderr, "        *[%zu] = \033[33m" ELEM_PRINT " aka %#llX\033[32m,\n", i, elem.ste, elem.ui);
     }
-    for (size_t i = st->size; i < st->capacity; ++i)
+    lim = (st->capacity < MAX_WRITES ? st->capacity : MAX_WRITES);
+    for (size_t i = st->size; i < lim; ++i)
     {
         elem.ste = st->data[i];
         fprintf(stderr, "         [%zu] = \033[33m" ELEM_PRINT " aka %#llX\033[32m,\n", i, elem.ste, elem.ui);
     }
+    if (lim < st->capacity)
+        fprintf(stderr, "         ...\033[32m,\n");
     fprintf(stderr, "    }\n}\033[39m\n");
 }
 
-stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
+stack_status GENERIC(_stack_validate)(GENERIC(stack) *st)
 {
     GENERIC(stack_dump)(st);
-    if (st == NULL || st->data == NULL)
+    if (st == NULL || !is_pointer_valid(st) || st->data == NULL || !is_pointer_valid(st->data))
         return STACK_NULL;
-    if (st->size > st->capacity)
+    if (st->size > st->capacity || !is_pointer_valid(&st->data[st->capacity - 1]))
         return STACK_NOT_VALID;
     #ifdef STACK_CANARY_PROTECT
     if (st->left_c != LEFT_CANARY || st->right_c != RIGHT_CANARY)
@@ -369,6 +388,14 @@ stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
         return STACK_WRONG_CHECKSUM;
     #endif
     return STACK_OK;
+}
+
+stack_status GENERIC(stack_validate)(GENERIC(stack) *st)
+{
+    stack_status stst = GENERIC(_stack_validate)(st);
+    if (stst != STACK_OK)
+        fprintf(stderr, "\033[31mError %s for stack at %p\033[39m\n", stack_error_code(stst), st);
+    return stst;
 }
 
 const char *stack_error_code(stack_status status)
@@ -385,6 +412,30 @@ const char *stack_error_code(stack_status status)
     };
     return errors[status];
 }
+
+bool is_pointer_valid(void *ptr)
+#ifdef _WIN32
+{
+    MEMORY_BASIC_INFORMATION mbi = {};
+    if (!VirtualQuery(ptr, &mbi, sizeof (mbi)))
+        return false;
+
+    if (mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS))
+        return false;  // Guard page -> bad ptr
+
+    DWORD readRights = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY
+        | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
+
+    return (mbi.Protect & readRights) != 0;
+}
+#endif
+#ifdef __unix__
+{
+    size_t page_size = sysconf(_SC_PAGESIZE);
+    void *base = (void *)((((size_t)ptr) / page_size) * page_size);
+    return msync(base, page_size, MS_ASYNC) == 0;
+}
+#endif
 
 #undef STR
 #undef CONCAT
